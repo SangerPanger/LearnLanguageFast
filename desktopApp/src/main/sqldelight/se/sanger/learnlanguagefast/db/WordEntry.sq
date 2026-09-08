@@ -1,5 +1,6 @@
 CREATE TABLE WordEntry (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    listId INTEGER NOT NULL DEFAULT 0,
     sourceWord TEXT NOT NULL,
     targetWord TEXT NOT NULL,
     retrain INTEGER NOT NULL DEFAULT 0,
@@ -7,17 +8,39 @@ CREATE TABLE WordEntry (
 );
 
 insertWord:
-INSERT INTO WordEntry(sourceWord, targetWord, retrain, perfectCount)
-VALUES (?, ?, ?, ?);
+INSERT INTO WordEntry(listId, sourceWord, targetWord, retrain, perfectCount)
+VALUES (?, ?, ?, ?, ?);
 
 getAllWords:
 SELECT * FROM WordEntry ORDER BY id;
 
+getWordsForList:
+SELECT * FROM WordEntry WHERE listId = ? ORDER BY id;
+
+getWordsForLists:
+SELECT * FROM WordEntry WHERE listId IN ? ORDER BY id;
+
 getRetrainWords:
 SELECT * FROM WordEntry WHERE retrain = 1 ORDER BY id;
+
+getRetrainWordsForLists:
+SELECT * FROM WordEntry WHERE retrain = 1 AND listId IN ? ORDER BY id;
 
 updateWord:
 UPDATE WordEntry SET sourceWord = ?, targetWord = ? WHERE id = ?;
 
 updateRetrainStatus:
 UPDATE WordEntry SET retrain = ?, perfectCount = ? WHERE id = ?;
+
+checkDuplicateInList:
+SELECT COUNT(*) FROM WordEntry
+WHERE listId = ? AND lower(trim(sourceWord)) = ? AND lower(trim(targetWord)) = ?;
+
+deleteWordsForList:
+DELETE FROM WordEntry WHERE listId = ?;
+
+countOrphanWords:
+SELECT COUNT(*) FROM WordEntry WHERE listId NOT IN (SELECT id FROM WordList);
+
+assignOrphanWordsToList:
+UPDATE WordEntry SET listId = ? WHERE listId NOT IN (SELECT id FROM WordList);

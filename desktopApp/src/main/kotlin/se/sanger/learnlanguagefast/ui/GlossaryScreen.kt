@@ -9,15 +9,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.input.key.*
+import se.sanger.learnlanguagefast.data.ImportResult
 import se.sanger.learnlanguagefast.model.Word
 
 @Composable
 fun GlossaryScreen(
+    listTitle: String,
     words: List<Word>,
     onEdit: (Word) -> Unit,
     onRetrainToggle: (Word, Boolean) -> Unit,
+    onImportCsv: () -> ImportResult?,
+    onExportCsv: () -> String?,
     onBack: () -> Unit
 ) {
+    var importResult by remember { mutableStateOf<ImportResult?>(null) }
+    var exportMessage by remember { mutableStateOf<String?>(null) }
     Column(
         modifier = Modifier.fillMaxSize().padding(24.dp)
             .onPreviewKeyEvent { event ->
@@ -29,14 +35,24 @@ fun GlossaryScreen(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Button(onClick = onBack) {
-            Text("← Back to Menu")
+            Text("← Back")
         }
         Spacer(Modifier.height(16.dp))
         Text("Glossary", style = MaterialTheme.typography.headlineMedium)
+        Text(listTitle, style = MaterialTheme.typography.titleLarge)
+        Spacer(Modifier.height(12.dp))
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedButton(onClick = { importResult = onImportCsv() }) {
+                Text("Import CSV")
+            }
+            OutlinedButton(onClick = { exportMessage = onExportCsv() }) {
+                Text("Export CSV")
+            }
+        }
         Spacer(Modifier.height(16.dp))
 
         if (words.isEmpty()) {
-            Text("No words added yet.")
+            Text("No words in this list yet.")
         } else {
             LazyColumn(modifier = Modifier.fillMaxWidth()) {
                 items(words) { word ->
@@ -60,6 +76,34 @@ fun GlossaryScreen(
                 }
             }
         }
+    }
+
+    importResult?.let { result ->
+        AlertDialog(
+            onDismissRequest = { importResult = null },
+            title = { Text("Import complete") },
+            text = {
+                Column {
+                    Text("Imported: ${result.imported}")
+                    Text("Skipped duplicates: ${result.skippedDuplicates}")
+                    Text("Invalid rows: ${result.invalidRows}")
+                }
+            },
+            confirmButton = {
+                Button(onClick = { importResult = null }) { Text("OK") }
+            }
+        )
+    }
+
+    exportMessage?.let { message ->
+        AlertDialog(
+            onDismissRequest = { exportMessage = null },
+            title = { Text("Export") },
+            text = { Text(message) },
+            confirmButton = {
+                Button(onClick = { exportMessage = null }) { Text("OK") }
+            }
+        )
     }
 }
 

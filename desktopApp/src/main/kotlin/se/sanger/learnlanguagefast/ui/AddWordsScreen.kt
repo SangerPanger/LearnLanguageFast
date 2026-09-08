@@ -12,6 +12,7 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun AddWordsScreen(
+    listTitle: String,
     onSave: (source: String, target: String) -> Unit,
     onBack: () -> Unit
 ) {
@@ -46,6 +47,9 @@ fun AddWordsScreen(
         }
         Spacer(Modifier.height(24.dp))
         Text("Add Words", style = MaterialTheme.typography.headlineMedium)
+        Spacer(Modifier.height(8.dp))
+        Text("Adding words to:", style = MaterialTheme.typography.bodyMedium)
+        Text(listTitle, style = MaterialTheme.typography.titleLarge)
         Spacer(Modifier.height(24.dp))
 
         OutlinedTextField(

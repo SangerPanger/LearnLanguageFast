@@ -2,6 +2,7 @@ package se.sanger.learnlanguagefast
 
 import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -12,6 +13,7 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.input.key.*
 import kotlinx.coroutines.delay
+import se.sanger.learnlanguagefast.data.ImportResult
 import se.sanger.learnlanguagefast.data.WordRepository
 import se.sanger.learnlanguagefast.game.GameEngine
 import se.sanger.learnlanguagefast.model.Word
@@ -27,76 +29,143 @@ fun main() = application {
     ) {
         MaterialTheme {
             var currentScreen by remember { mutableStateOf<Screen>(Screen.MainMenu) }
-            var words by remember { mutableStateOf(repository.getAllWords()) }
+            var lists by remember { mutableStateOf(repository.getAllLists()) }
+            var words by remember { mutableStateOf<List<Word>>(emptyList()) }
 
-            fun refreshWords() {
-                words = repository.getAllWords()
+            fun refreshLists() {
+                lists = repository.getAllLists()
+            }
+
+            fun refreshWords(listId: Long) {
+                words = repository.getWordsForList(listId)
+            }
+
+            fun startGame(gameWords: List<Word>, isRetrain: Boolean) {
+                engine.startRound(gameWords, isRetrain = isRetrain)
+                currentScreen = Screen.Game(isRetrain)
             }
 
             when (val screen = currentScreen) {
                 is Screen.MainMenu -> {
                     MainMenuScreen(
                         onStartNew = {
-                            val allWords = repository.getAllWords()
-                            if (allWords.isEmpty()) {
-                                currentScreen = Screen.Game(isRetrain = false)
-                            } else {
-                                engine.startRound(allWords, isRetrain = false)
-                                currentScreen = Screen.Game(isRetrain = false)
-                            }
+                            refreshLists()
+                            currentScreen = Screen.StartNewListSelection
                         },
                         onRetrain = {
-                            val retrainWords = repository.getRetrainWords()
-                            if (retrainWords.isEmpty()) {
-                                currentScreen = Screen.Game(isRetrain = true)
-                            } else {
-                                engine.startRound(retrainWords, isRetrain = true)
-                                currentScreen = Screen.Game(isRetrain = true)
-                            }
+                            refreshLists()
+                            currentScreen = Screen.RetrainListSelection
                         },
-                        onAddWords = { currentScreen = Screen.AddWords },
+                        onAddWords = { currentScreen = Screen.AddWordsChoice },
                         onGlossary = {
-                            refreshWords()
-                            currentScreen = Screen.Glossary
+                            refreshLists()
+                            currentScreen = Screen.GlossaryListSelection
                         },
                         onExit = { exitApplication() }
                     )
                 }
 
+                // ---------------- Add words flow ----------------
+
+                is Screen.AddWordsChoice -> {
+                    AddWordsChoiceScreen(
+                        onNewList = { currentScreen = Screen.CreateList },
+                        onChooseList = {
+                            refreshLists()
+                            currentScreen = Screen.AddWordsListSelection
+                        },
+                        onBack = { currentScreen = Screen.MainMenu }
+                    )
+                }
+
+                is Screen.CreateList -> {
+                    CreateListScreen(
+                        onCreate = { title ->
+                            val trimmed = title.trim()
+                            when {
+                                trimmed.isEmpty() -> "Title cannot be empty."
+                                repository.findListByTitle(trimmed) != null -> "A list with this title already exists."
+                                else -> {
+                                    val created = repository.createList(trimmed)
+                                    if (created == null) {
+                                        "Could not create list."
+                                    } else {
+                                        refreshLists()
+                                        currentScreen = Screen.AddWords(created)
+                                        null
+                                    }
+                                }
+                            }
+                        },
+                        onBack = { currentScreen = Screen.AddWordsChoice }
+                    )
+                }
+
+                is Screen.AddWordsListSelection -> {
+                    SingleListSelectionScreen(
+                        title = "Add Words",
+                        lists = lists,
+                        onSelect = { list -> currentScreen = Screen.AddWords(list) },
+                        onCreateNew = { currentScreen = Screen.CreateList },
+                        onBack = { currentScreen = Screen.AddWordsChoice }
+                    )
+                }
+
                 is Screen.AddWords -> {
                     AddWordsScreen(
+                        listTitle = screen.list.title,
                         onSave = { source, target ->
-                            repository.insertWord(source, target)
+                            repository.insertWord(screen.list.id, source, target)
+                        },
+                        onBack = { currentScreen = Screen.MainMenu }
+                    )
+                }
+
+                // ---------------- Game flow ----------------
+
+                is Screen.StartNewListSelection -> {
+                    MultiListSelectionScreen(
+                        title = "Start New",
+                        lists = lists,
+                        startLabel = "Start",
+                        onStart = { selectedIds ->
+                            val gameWords = repository.getWordsForLists(selectedIds)
+                            if (gameWords.isEmpty()) {
+                                "No words found in selected lists."
+                            } else {
+                                startGame(gameWords, isRetrain = false)
+                                null
+                            }
+                        },
+                        onBack = { currentScreen = Screen.MainMenu }
+                    )
+                }
+
+                is Screen.RetrainListSelection -> {
+                    MultiListSelectionScreen(
+                        title = "Retrain",
+                        lists = lists,
+                        startLabel = "Start Retrain",
+                        onStart = { selectedIds ->
+                            val gameWords = repository.getRetrainWordsForLists(selectedIds)
+                            if (gameWords.isEmpty()) {
+                                "No words need retraining in the selected lists."
+                            } else {
+                                startGame(gameWords, isRetrain = true)
+                                null
+                            }
                         },
                         onBack = { currentScreen = Screen.MainMenu }
                     )
                 }
 
                 is Screen.Game -> {
-                    val allWords = if (!screen.isRetrain) repository.getAllWords() else repository.getRetrainWords()
-                    if (allWords.isEmpty()) {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.Center
-                        ) {
-                            Text(
-                                if (screen.isRetrain) "No words need retraining."
-                                else "No words added yet."
-                            )
-                            Spacer(Modifier.height(16.dp))
-                            androidx.compose.material3.Button(onClick = {
-                                currentScreen = Screen.MainMenu
-                            }) {
-                                Text("Back to Menu")
-                            }
-                        }
-                    } else if (!engine.hasWords) {
+                    if (!engine.hasWords) {
                         currentScreen = Screen.RoundComplete
                     } else {
                         GameScreen(
                             engine = engine,
-                            onWordComplete = { word, perfect ->
+                            onWordComplete = { word, _ ->
                                 repository.updateRetrainStatus(word.id, word.retrain, word.perfectCount)
                             },
                             onRoundComplete = {
@@ -107,20 +176,54 @@ fun main() = application {
                     }
                 }
 
-                is Screen.Glossary -> {
-                    GlossaryScreen(
-                        words = words,
-                        onEdit = { word -> currentScreen = Screen.EditWord(word) },
-                        onRetrainToggle = { word, retrain ->
-                            // When manually toggling, we reset perfectCount to 0 if marking for retrain,
-                            // or leave it as is if unflagging? Usually manual unflag means 
-                            // user wants it gone. Let's reset to 0 if flagging, and set to 3 if unflagging?
-                            // Simple approach: just update retrain, reset perfectCount to 0 if retrain=true,
-                            // or 3 if retrain=false.
-                            repository.updateRetrainStatus(word.id, retrain, if (retrain) 0 else 3)
-                            refreshWords()
+                // ---------------- Glossary flow ----------------
+
+                is Screen.GlossaryListSelection -> {
+                    SingleListSelectionScreen(
+                        title = "Glossary",
+                        lists = lists,
+                        onSelect = { list ->
+                            refreshWords(list.id)
+                            currentScreen = Screen.Glossary(list)
                         },
+                        onCreateNew = null,
                         onBack = { currentScreen = Screen.MainMenu }
+                    )
+                }
+
+                is Screen.Glossary -> {
+                    val list = screen.list
+                    GlossaryScreen(
+                        listTitle = list.title,
+                        words = words,
+                        onEdit = { word -> currentScreen = Screen.EditWord(word, list) },
+                        onRetrainToggle = { word, retrain ->
+                            // Manually flagging resets progress; manually unflagging marks it as learned.
+                            repository.updateRetrainStatus(word.id, retrain, if (retrain) 0 else 3)
+                            refreshWords(list.id)
+                        },
+                        onImportCsv = {
+                            val file = FileDialogs.chooseCsvToOpen() ?: return@GlossaryScreen null
+                            val result: ImportResult? = try {
+                                val text = file.readText(Charsets.UTF_8)
+                                repository.importCsv(list.id, text)
+                            } catch (e: Exception) {
+                                ImportResult(0, 0, 0)
+                            }
+                            refreshWords(list.id)
+                            result
+                        },
+                        onExportCsv = {
+                            val file = FileDialogs.chooseCsvToSave(FileDialogs.suggestedFileName(list.title))
+                                ?: return@GlossaryScreen null
+                            try {
+                                file.writeText(repository.exportCsv(list.id), Charsets.UTF_8)
+                                "Exported ${words.size} words to:\n${file.absolutePath}"
+                            } catch (e: Exception) {
+                                "Export failed: ${e.message}"
+                            }
+                        },
+                        onBack = { currentScreen = Screen.GlossaryListSelection }
                     )
                 }
 
@@ -129,12 +232,14 @@ fun main() = application {
                         word = screen.word,
                         onSave = { id, source, target ->
                             repository.updateWord(id, source, target)
-                            refreshWords()
-                            currentScreen = Screen.Glossary
+                            refreshWords(screen.list.id)
+                            currentScreen = Screen.Glossary(screen.list)
                         },
-                        onCancel = { currentScreen = Screen.Glossary }
+                        onCancel = { currentScreen = Screen.Glossary(screen.list) }
                     )
                 }
+
+                // ---------------- Round complete ----------------
 
                 is Screen.RoundComplete -> {
                     LaunchedEffect(Unit) {
@@ -153,14 +258,9 @@ fun main() = application {
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
-                        LaunchedEffect(Unit) {
-                            // Ensure focus for key events
-                        }
                         Text("Round Complete", style = MaterialTheme.typography.headlineLarge)
                         Spacer(Modifier.height(24.dp))
-                        androidx.compose.material3.Button(onClick = {
-                            currentScreen = Screen.MainMenu
-                        }) {
+                        Button(onClick = { currentScreen = Screen.MainMenu }) {
                             Text("Back to Menu")
                         }
                     }

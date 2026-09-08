@@ -31,8 +31,15 @@ compose.desktop {
         mainClass = "se.sanger.learnlanguagefast.MainKt"
 
         nativeDistributions {
-            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb)
-            packageName = "se.sanger.learnlanguagefast"
+            targetFormats(
+                TargetFormat.Dmg,
+                TargetFormat.Msi,
+                TargetFormat.Deb
+            )
+
+            includeAllModules = true
+
+            packageName = "LearnLanguageFast"
             packageVersion = "1.0.0"
         }
     }

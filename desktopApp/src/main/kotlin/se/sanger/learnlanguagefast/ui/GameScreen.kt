@@ -115,6 +115,18 @@ fun GameScreen(
             return false
         }
 
+        // Allow Spacebar as a valid guess for ' ' (space) to support phrases
+        if (event.key == Key.Spacebar) {
+            // Confirm any pending selection first
+            val ss = selectionState
+            if (ss != null) {
+                submitGuess(ss.selectedChar)
+                selectionState = null
+            }
+            submitGuess(' ')
+            return true
+        }
+
         val char = event.utf16CodePoint.toChar().lowercaseChar()
         if (!char.isLetter()) return false
 
