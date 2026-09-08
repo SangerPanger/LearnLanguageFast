@@ -32,7 +32,13 @@ fun AddWordsScreen(
     }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp)
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    onBack()
+                    true
+                } else false
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Button(onClick = onBack) {
@@ -45,7 +51,7 @@ fun AddWordsScreen(
         OutlinedTextField(
             value = sourceWord,
             onValueChange = { sourceWord = it },
-            label = { Text("Swedish") },
+            label = { Text("Your language") },
             singleLine = true,
             modifier = Modifier.width(300.dp)
                 .focusRequester(sourceFocus)
@@ -60,7 +66,7 @@ fun AddWordsScreen(
         OutlinedTextField(
             value = targetWord,
             onValueChange = { targetWord = it },
-            label = { Text("English") },
+            label = { Text("Learning Language") },
             singleLine = true,
             modifier = Modifier.width(300.dp)
                 .focusRequester(targetFocus)

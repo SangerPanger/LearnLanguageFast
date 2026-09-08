@@ -26,15 +26,17 @@ class GameEngine {
     private val queue = ArrayDeque<Word>()
     private var currentWordState: GameWordState? = null
     private var consecutiveErrors = 0
+    private var isRetrainMode = false
 
     val currentState: GameWordState? get() = currentWordState
     val isRoundComplete: Boolean get() = currentWordState == null && queue.isEmpty()
     val hasWords: Boolean get() = currentWordState != null || queue.isNotEmpty()
 
-    fun startRound(words: List<Word>) {
+    fun startRound(words: List<Word>, isRetrain: Boolean = false) {
         queue.clear()
         queue.addAll(words.shuffled())
         consecutiveErrors = 0
+        isRetrainMode = isRetrain
         advanceToNextWord()
     }
 
@@ -75,7 +77,6 @@ class GameEngine {
             }
         } else {
             consecutiveErrors++
-            val hadMistake = true
             currentWordState = state.copy(hadMistake = true)
 
             if (consecutiveErrors >= 2) {
@@ -101,14 +102,40 @@ class GameEngine {
     private fun handleWordComplete() {
         val state = currentWordState ?: return
         if (state.hadMistake) {
-            queue.addLast(state.word)
+            // Re-queue the word but WITH the retrain flag set to true!
+            // Wait, state.word is the original word. We should use the updated flags here.
+            val updatedResult = getCompletedWordResult()
+            if (updatedResult != null) {
+                queue.addLast(updatedResult.first)
+            } else {
+                queue.addLast(state.word)
+            }
         }
     }
 
     fun getCompletedWordResult(): Pair<Word, Boolean>? {
         val state = currentWordState ?: return null
         if (state.slots.any { it.state == LetterState.HIDDEN }) return null
-        return Pair(state.word, !state.hadMistake)
+        
+        val newPerfectCount: Int
+        val shouldBeRetrain: Boolean
+
+        if (state.hadMistake) {
+            newPerfectCount = 0
+            shouldBeRetrain = true
+        } else {
+            // Perfect run
+            if (isRetrainMode) {
+                newPerfectCount = state.word.perfectCount + 1
+                shouldBeRetrain = if (newPerfectCount >= 3) false else state.word.retrain
+            } else {
+                // In Start New mode, we just keep the hit count and flag status
+                newPerfectCount = state.word.perfectCount
+                shouldBeRetrain = state.word.retrain
+            }
+        }
+        
+        return Pair(state.word.copy(retrain = shouldBeRetrain, perfectCount = newPerfectCount), !state.hadMistake)
     }
 
     fun moveToNextWord() {

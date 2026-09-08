@@ -4,5 +4,6 @@ data class Word(
     val id: Long,
     val sourceWord: String,
     val targetWord: String,
-    val retrain: Boolean
+    val retrain: Boolean,
+    val perfectCount: Int = 0
 )

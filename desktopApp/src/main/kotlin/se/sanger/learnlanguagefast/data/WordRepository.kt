@@ -12,7 +12,13 @@ class WordRepository {
         try {
             AppDatabase.Schema.create(driver)
         } catch (_: Exception) {
-            // Schema already exists
+            // Schema already exists, try to migrate if needed
+            try {
+                // Simple migration for perfectCount if it's missing
+                driver.execute(null, "ALTER TABLE WordEntry ADD COLUMN perfectCount INTEGER NOT NULL DEFAULT 0", 0)
+            } catch (_: Exception) {
+                // Column probably already exists or table doesn't exist yet
+            }
         }
         database = AppDatabase(driver)
     }
@@ -21,23 +27,23 @@ class WordRepository {
 
     fun getAllWords(): List<Word> =
         queries.getAllWords().executeAsList().map {
-            Word(it.id, it.sourceWord, it.targetWord, it.retrain != 0L)
+            Word(it.id, it.sourceWord, it.targetWord, it.retrain != 0L, it.perfectCount.toInt())
         }
 
     fun getRetrainWords(): List<Word> =
         queries.getRetrainWords().executeAsList().map {
-            Word(it.id, it.sourceWord, it.targetWord, it.retrain != 0L)
+            Word(it.id, it.sourceWord, it.targetWord, it.retrain != 0L, it.perfectCount.toInt())
         }
 
     fun insertWord(sourceWord: String, targetWord: String) {
-        queries.insertWord(sourceWord, targetWord, 0L)
+        queries.insertWord(sourceWord, targetWord, 0L, 0L)
     }
 
     fun updateWord(id: Long, sourceWord: String, targetWord: String) {
         queries.updateWord(sourceWord, targetWord, id)
     }
 
-    fun updateRetrainStatus(id: Long, retrain: Boolean) {
-        queries.updateRetrainStatus(if (retrain) 1L else 0L, id)
+    fun updateRetrainStatus(id: Long, retrain: Boolean, perfectCount: Int) {
+        queries.updateRetrainStatus(if (retrain) 1L else 0L, perfectCount.toLong(), id)
     }
 }

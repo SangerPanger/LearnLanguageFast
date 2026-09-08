@@ -18,12 +18,13 @@ import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
+import se.sanger.learnlanguagefast.model.Word
 import se.sanger.learnlanguagefast.game.*
 
 @Composable
 fun GameScreen(
     engine: GameEngine,
-    onWordComplete: (wordId: Long, perfect: Boolean) -> Unit,
+    onWordComplete: (Word, Boolean) -> Unit,
     onRoundComplete: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -45,7 +46,24 @@ fun GameScreen(
 
     fun handleKey(event: KeyEvent): Boolean {
         if (event.type != KeyEventType.KeyDown) return false
-        if (showWordComplete) return false
+        
+        if (showWordComplete) {
+            if (event.key == Key.Enter) {
+                val result = engine.getCompletedWordResult()
+                if (result != null) {
+                    val (word, perfect) = result
+                    onWordComplete(word, perfect)
+                    engine.moveToNextWord()
+                    wordState = engine.currentState
+                    showWordComplete = false
+                    if (engine.isRoundComplete) {
+                        onRoundComplete()
+                    }
+                    return true
+                }
+            }
+            return false
+        }
 
         val char = event.utf16CodePoint.toChar()
         if (!char.isLetter()) return false
@@ -80,7 +98,14 @@ fun GameScreen(
             .background(bgColor)
             .focusRequester(focusRequester)
             .focusable()
-            .onPreviewKeyEvent { handleKey(it) }
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    onBack()
+                    true
+                } else {
+                    handleKey(event)
+                }
+            }
     ) {
         Column(
             modifier = Modifier.fillMaxSize().padding(24.dp),
@@ -138,7 +163,7 @@ fun GameScreen(
                     )
                     Spacer(Modifier.height(16.dp))
                     Button(onClick = {
-                        onWordComplete(word.id, perfect)
+                        onWordComplete(word, perfect)
                         engine.moveToNextWord()
                         wordState = engine.currentState
                         showWordComplete = false
@@ -158,7 +183,19 @@ fun GameScreen(
     }
 
     LaunchedEffect(showWordComplete) {
-        if (!showWordComplete) {
+        if (showWordComplete) {
+            val result = engine.getCompletedWordResult()
+            if (result != null && result.second) {
+                delay(400)
+                onWordComplete(result.first, true)
+                engine.moveToNextWord()
+                wordState = engine.currentState
+                showWordComplete = false
+                if (engine.isRoundComplete) {
+                    onRoundComplete()
+                }
+            }
+        } else {
             focusRequester.requestFocus()
         }
     }

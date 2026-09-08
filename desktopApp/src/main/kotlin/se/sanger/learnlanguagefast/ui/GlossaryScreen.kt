@@ -8,17 +8,24 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.input.key.*
 import se.sanger.learnlanguagefast.model.Word
 
 @Composable
 fun GlossaryScreen(
     words: List<Word>,
     onEdit: (Word) -> Unit,
-    onRetrainToggle: (Long, Boolean) -> Unit,
+    onRetrainToggle: (Word, Boolean) -> Unit,
     onBack: () -> Unit
 ) {
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp)
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    onBack()
+                    true
+                } else false
+            },
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Button(onClick = onBack) {
@@ -45,7 +52,7 @@ fun GlossaryScreen(
                         Checkbox(
                             checked = word.retrain,
                             onCheckedChange = { checked ->
-                                onRetrainToggle(word.id, checked)
+                                onRetrainToggle(word, checked)
                             }
                         )
                     }
@@ -66,7 +73,13 @@ fun EditWordScreen(
     var targetWord by remember { mutableStateOf(word.targetWord) }
 
     Column(
-        modifier = Modifier.fillMaxSize().padding(24.dp),
+        modifier = Modifier.fillMaxSize().padding(24.dp)
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    onCancel()
+                    true
+                } else false
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
@@ -75,7 +88,7 @@ fun EditWordScreen(
         OutlinedTextField(
             value = sourceWord,
             onValueChange = { sourceWord = it },
-            label = { Text("Swedish") },
+            label = { Text("Your language") },
             singleLine = true,
             modifier = Modifier.width(300.dp)
         )
@@ -83,7 +96,7 @@ fun EditWordScreen(
         OutlinedTextField(
             value = targetWord,
             onValueChange = { targetWord = it },
-            label = { Text("English") },
+            label = { Text("Learning Language") },
             singleLine = true,
             modifier = Modifier.width(300.dp)
         )

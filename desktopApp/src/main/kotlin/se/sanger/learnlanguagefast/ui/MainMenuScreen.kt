@@ -9,15 +9,24 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import androidx.compose.ui.input.key.*
+
 @Composable
 fun MainMenuScreen(
     onStartNew: () -> Unit,
     onRetrain: () -> Unit,
     onAddWords: () -> Unit,
-    onGlossary: () -> Unit
+    onGlossary: () -> Unit,
+    onExit: () -> Unit = {}
 ) {
     Column(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier.fillMaxSize()
+            .onPreviewKeyEvent { event ->
+                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                    onExit()
+                    true
+                } else false
+            },
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {

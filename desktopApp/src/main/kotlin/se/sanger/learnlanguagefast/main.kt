@@ -1,5 +1,6 @@
 package se.sanger.learnlanguagefast
 
+import androidx.compose.foundation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -9,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
+import androidx.compose.ui.input.key.*
+import kotlinx.coroutines.delay
 import se.sanger.learnlanguagefast.data.WordRepository
 import se.sanger.learnlanguagefast.game.GameEngine
 import se.sanger.learnlanguagefast.model.Word
@@ -38,7 +41,7 @@ fun main() = application {
                             if (allWords.isEmpty()) {
                                 currentScreen = Screen.Game(isRetrain = false)
                             } else {
-                                engine.startRound(allWords)
+                                engine.startRound(allWords, isRetrain = false)
                                 currentScreen = Screen.Game(isRetrain = false)
                             }
                         },
@@ -47,7 +50,7 @@ fun main() = application {
                             if (retrainWords.isEmpty()) {
                                 currentScreen = Screen.Game(isRetrain = true)
                             } else {
-                                engine.startRound(retrainWords)
+                                engine.startRound(retrainWords, isRetrain = true)
                                 currentScreen = Screen.Game(isRetrain = true)
                             }
                         },
@@ -55,7 +58,8 @@ fun main() = application {
                         onGlossary = {
                             refreshWords()
                             currentScreen = Screen.Glossary
-                        }
+                        },
+                        onExit = { exitApplication() }
                     )
                 }
 
@@ -92,8 +96,8 @@ fun main() = application {
                     } else {
                         GameScreen(
                             engine = engine,
-                            onWordComplete = { wordId, perfect ->
-                                repository.updateRetrainStatus(wordId, !perfect)
+                            onWordComplete = { word, perfect ->
+                                repository.updateRetrainStatus(word.id, word.retrain, word.perfectCount)
                             },
                             onRoundComplete = {
                                 currentScreen = Screen.RoundComplete
@@ -107,8 +111,13 @@ fun main() = application {
                     GlossaryScreen(
                         words = words,
                         onEdit = { word -> currentScreen = Screen.EditWord(word) },
-                        onRetrainToggle = { id, retrain ->
-                            repository.updateRetrainStatus(id, retrain)
+                        onRetrainToggle = { word, retrain ->
+                            // When manually toggling, we reset perfectCount to 0 if marking for retrain,
+                            // or leave it as is if unflagging? Usually manual unflag means 
+                            // user wants it gone. Let's reset to 0 if flagging, and set to 3 if unflagging?
+                            // Simple approach: just update retrain, reset perfectCount to 0 if retrain=true,
+                            // or 3 if retrain=false.
+                            repository.updateRetrainStatus(word.id, retrain, if (retrain) 0 else 3)
                             refreshWords()
                         },
                         onBack = { currentScreen = Screen.MainMenu }
@@ -128,11 +137,25 @@ fun main() = application {
                 }
 
                 is Screen.RoundComplete -> {
+                    LaunchedEffect(Unit) {
+                        delay(1000)
+                        currentScreen = Screen.MainMenu
+                    }
                     Column(
-                        modifier = Modifier.fillMaxSize(),
+                        modifier = Modifier.fillMaxSize()
+                            .onPreviewKeyEvent { event ->
+                                if (event.key == Key.Escape && event.type == KeyEventType.KeyDown) {
+                                    currentScreen = Screen.MainMenu
+                                    true
+                                } else false
+                            }
+                            .focusable(),
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.Center
                     ) {
+                        LaunchedEffect(Unit) {
+                            // Ensure focus for key events
+                        }
                         Text("Round Complete", style = MaterialTheme.typography.headlineLarge)
                         Spacer(Modifier.height(24.dp))
                         androidx.compose.material3.Button(onClick = {

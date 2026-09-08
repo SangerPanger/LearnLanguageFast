@@ -2,12 +2,13 @@ CREATE TABLE WordEntry (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     sourceWord TEXT NOT NULL,
     targetWord TEXT NOT NULL,
-    retrain INTEGER NOT NULL DEFAULT 0
+    retrain INTEGER NOT NULL DEFAULT 0,
+    perfectCount INTEGER NOT NULL DEFAULT 0
 );
 
 insertWord:
-INSERT INTO WordEntry(sourceWord, targetWord, retrain)
-VALUES (?, ?, ?);
+INSERT INTO WordEntry(sourceWord, targetWord, retrain, perfectCount)
+VALUES (?, ?, ?, ?);
 
 getAllWords:
 SELECT * FROM WordEntry ORDER BY id;
@@ -19,4 +20,4 @@ updateWord:
 UPDATE WordEntry SET sourceWord = ?, targetWord = ? WHERE id = ?;
 
 updateRetrainStatus:
-UPDATE WordEntry SET retrain = ? WHERE id = ?;
+UPDATE WordEntry SET retrain = ?, perfectCount = ? WHERE id = ?;

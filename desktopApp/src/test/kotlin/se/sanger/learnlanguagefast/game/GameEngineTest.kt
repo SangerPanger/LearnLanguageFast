@@ -102,4 +102,106 @@ class GameEngineTest {
         // Original case preserved
         assertEquals('D', engine.currentState!!.slots[0].character)
     }
+
+    @Test
+    fun `retrain flag logic with 3 perfect hits`() {
+        val engine = GameEngine()
+        
+        // 1. Normal mode: Perfect word doesn't unflag if it was flagged, doesn't increment perfectCount
+        val flaggedWord = Word(1, "hund", "dog", true, 0)
+        engine.startRound(listOf(flaggedWord), isRetrain = false)
+        engine.onKeyPress('d')
+        engine.onKeyPress('o')
+        engine.onKeyPress('g')
+        val res1 = engine.getCompletedWordResult()
+        assertTrue(res1!!.first.retrain, "Should remain flagged in normal mode even if perfect")
+        assertEquals(0, res1.first.perfectCount, "perfectCount should not increment in normal mode")
+
+        // 2. Normal mode: Mistake flags for retrain and resets perfectCount
+        val cleanWord = Word(2, "katt", "cat", false, 2)
+        engine.startRound(listOf(cleanWord), isRetrain = false)
+        engine.onKeyPress('x') // wrong
+        engine.onKeyPress('c')
+        engine.onKeyPress('a')
+        engine.onKeyPress('t')
+        val res2 = engine.getCompletedWordResult()
+        assertTrue(res2!!.first.retrain, "Mistake should flag for retrain in normal mode")
+        assertEquals(0, res2.first.perfectCount, "Mistake should reset perfectCount")
+
+        // 3. Retrain mode: Perfect word increments perfectCount but stays flagged until 3
+        var word = Word(3, "bil", "car", true, 0)
+        
+        // Hit 1
+        engine.startRound(listOf(word), isRetrain = true)
+        engine.onKeyPress('c'); engine.onKeyPress('a'); engine.onKeyPress('r')
+        word = engine.getCompletedWordResult()!!.first
+        assertTrue(word.retrain)
+        assertEquals(1, word.perfectCount)
+
+        // Hit 2
+        engine.startRound(listOf(word), isRetrain = true)
+        engine.onKeyPress('c'); engine.onKeyPress('a'); engine.onKeyPress('r')
+        word = engine.getCompletedWordResult()!!.first
+        assertTrue(word.retrain)
+        assertEquals(2, word.perfectCount)
+
+        // Hit 3
+        engine.startRound(listOf(word), isRetrain = true)
+        engine.onKeyPress('c'); engine.onKeyPress('a'); engine.onKeyPress('r')
+        word = engine.getCompletedWordResult()!!.first
+        assertFalse(word.retrain, "Should unflag after 3 perfect hits")
+        assertEquals(3, word.perfectCount)
+
+        // 4. Retrain mode: Mistake flags/keeps flagged and resets perfectCount
+        val wordWithProgress = Word(4, "hus", "house", true, 2)
+        engine.startRound(listOf(wordWithProgress), isRetrain = true)
+        engine.onKeyPress('x') // wrong
+        engine.onKeyPress('h'); engine.onKeyPress('o'); engine.onKeyPress('u'); engine.onKeyPress('s'); engine.onKeyPress('e')
+        val res4 = engine.getCompletedWordResult()
+        assertTrue(res4!!.first.retrain)
+        assertEquals(0, res4.first.perfectCount, "Mistake should reset perfectCount even in Retrain mode")
+    }
+
+    @Test
+    fun `mistake via auto-reveal in start new mode sets retrain flag`() {
+        val engine = GameEngine()
+        val word = Word(1, "hund", "dog", false, 0)
+        engine.startRound(listOf(word), isRetrain = false)
+        
+        // 'd', 'o' correct
+        engine.onKeyPress('d')
+        engine.onKeyPress('o')
+        
+        // Two mistakes on 'g' to trigger auto-reveal
+        engine.onKeyPress('x')
+        engine.onKeyPress('x') 
+        
+        val result = engine.getCompletedWordResult()
+        assertNotNull(result)
+        assertFalse(result.second, "Should NOT be perfect")
+        assertTrue(result.first.retrain, "Should be flagged for retrain after auto-reveal mistake")
+        assertEquals(0, result.first.perfectCount)
+    }
+
+    @Test
+    fun `mistake then perfect in same round maintains retrain flag`() {
+        val engine = GameEngine()
+        val word = Word(1, "hund", "dog", false, 0)
+        engine.startRound(listOf(word), isRetrain = false)
+        
+        // Attempt 1: Mistake
+        engine.onKeyPress('x')
+        engine.onKeyPress('d'); engine.onKeyPress('o'); engine.onKeyPress('g')
+        
+        val res1 = engine.getCompletedWordResult()
+        assertTrue(res1!!.first.retrain, "Should be flagged after mistake")
+        
+        engine.moveToNextWord()
+        assertFalse(engine.isRoundComplete, "Should re-queue word")
+        
+        // Attempt 2: Perfect
+        engine.onKeyPress('d'); engine.onKeyPress('o'); engine.onKeyPress('g')
+        val res2 = engine.getCompletedWordResult()
+        assertTrue(res2!!.first.retrain, "Should STAY flagged even if second attempt is perfect in Start New mode")
+    }
 }
