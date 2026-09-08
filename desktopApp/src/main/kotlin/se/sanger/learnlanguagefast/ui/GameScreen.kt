@@ -5,9 +5,7 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
-import androidx.compose.material3.Button
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Text
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -17,9 +15,29 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
 import se.sanger.learnlanguagefast.model.Word
 import se.sanger.learnlanguagefast.game.*
+
+data class SelectionState(
+    val baseChar: Char,
+    val alternatives: List<Char>,
+    val selectedIndex: Int
+) {
+    val selectedChar: Char get() = alternatives[selectedIndex]
+}
+
+private val polishGroups = mapOf(
+    'a' to listOf('a', 'ą'),
+    'c' to listOf('c', 'ć'),
+    'e' to listOf('e', 'ę'),
+    'l' to listOf('l', 'ł'),
+    'n' to listOf('n', 'ń'),
+    'o' to listOf('o', 'ó'),
+    's' to listOf('s', 'ś'),
+    'z' to listOf('z', 'ź', 'ż')
+)
 
 @Composable
 fun GameScreen(
@@ -32,6 +50,7 @@ fun GameScreen(
     var wordState by remember { mutableStateOf(engine.currentState) }
     var flashRed by remember { mutableStateOf(false) }
     var showWordComplete by remember { mutableStateOf(false) }
+    var selectionState by remember { mutableStateOf<SelectionState?>(null) }
 
     val bgColor by animateColorAsState(
         targetValue = if (flashRed) Color.Red.copy(alpha = 0.3f) else Color.Transparent
@@ -41,6 +60,26 @@ fun GameScreen(
         if (flashRed) {
             delay(300)
             flashRed = false
+        }
+    }
+
+    fun submitGuess(char: Char) {
+        val result = engine.onKeyPress(char)
+        wordState = engine.currentState
+
+        when (result) {
+            is GuessResult.Wrong -> {
+                flashRed = true
+            }
+            is GuessResult.AutoReveal -> {
+                flashRed = true
+            }
+            is GuessResult.WordComplete -> {
+                showWordComplete = true
+                selectionState = null
+            }
+            is GuessResult.Correct -> {}
+            null -> {}
         }
     }
 
@@ -56,6 +95,7 @@ fun GameScreen(
                     engine.moveToNextWord()
                     wordState = engine.currentState
                     showWordComplete = false
+                    selectionState = null
                     if (engine.isRoundComplete) {
                         onRoundComplete()
                     }
@@ -65,26 +105,47 @@ fun GameScreen(
             return false
         }
 
-        val char = event.utf16CodePoint.toChar()
+        if (event.key == Key.Enter) {
+            val ss = selectionState
+            if (ss != null) {
+                submitGuess(ss.selectedChar)
+                selectionState = null
+                return true
+            }
+            return false
+        }
+
+        val char = event.utf16CodePoint.toChar().lowercaseChar()
         if (!char.isLetter()) return false
 
-        val result = engine.onKeyPress(char)
-        wordState = engine.currentState
-
-        when (result) {
-            is GuessResult.Wrong -> {
-                flashRed = true
+        val group = polishGroups[char]
+        if (group != null) {
+            val ss = selectionState
+            if (ss?.baseChar == char) {
+                // Cycle
+                selectionState = ss.copy(
+                    selectedIndex = (ss.selectedIndex + 1) % ss.alternatives.size
+                )
+            } else {
+                // Confirm previous if any
+                if (ss != null) {
+                    submitGuess(ss.selectedChar)
+                }
+                // Start new selection
+                selectionState = SelectionState(char, group, 0)
             }
-            is GuessResult.AutoReveal -> {
-                flashRed = true
+            return true
+        } else {
+            // Not a special key
+            // Confirm previous if any
+            val ss = selectionState
+            if (ss != null) {
+                submitGuess(ss.selectedChar)
+                selectionState = null
             }
-            is GuessResult.WordComplete -> {
-                showWordComplete = true
-            }
-            is GuessResult.Correct -> {}
-            null -> {}
+            submitGuess(event.utf16CodePoint.toChar())
+            return true
         }
-        return true
     }
 
     if (wordState == null) {
@@ -148,6 +209,30 @@ fun GameScreen(
                             )
                         }
                     }
+                }
+            }
+
+            selectionState?.let { ss ->
+                Spacer(Modifier.height(24.dp))
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    ss.alternatives.forEachIndexed { index, alt ->
+                        val isSelected = index == ss.selectedIndex
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .padding(2.dp)
+                                .background(if (isSelected) Color.LightGray else Color.Transparent)
+                                .border(if (isSelected) 2.dp else 0.dp, Color.DarkGray),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = if (isSelected) "[$alt]" else alt.toString(),
+                                fontSize = 20.sp,
+                                fontWeight = if (isSelected) androidx.compose.ui.text.font.FontWeight.Bold else null
+                            )
+                        }
+                    }
+                    Text("▼", fontSize = 16.sp)
                 }
             }
 

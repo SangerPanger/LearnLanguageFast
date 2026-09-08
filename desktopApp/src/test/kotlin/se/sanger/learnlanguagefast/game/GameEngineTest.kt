@@ -204,4 +204,60 @@ class GameEngineTest {
         val res2 = engine.getCompletedWordResult()
         assertTrue(res2!!.first.retrain, "Should STAY flagged even if second attempt is perfect in Start New mode")
     }
+
+    @Test
+    fun `polish characters are distinct`() {
+        val engine = GameEngine()
+        val word = makeWord("\u017caba", "\u017caba") // żaba
+        engine.startRound(listOf(word))
+
+        // Guess 'z' -> wrong
+        val r1 = engine.onKeyPress('z')
+        assertIs<GuessResult.Wrong>(r1)
+
+        // Reset to avoid auto-reveal
+        engine.startRound(listOf(word))
+
+        // Guess 'ź' (\u017a) -> wrong
+        val r2 = engine.onKeyPress('\u017a')
+        assertIs<GuessResult.Wrong>(r2)
+
+        // Reset
+        engine.startRound(listOf(word))
+
+        // Guess 'ż' (\u017c) -> correct
+        val r3 = engine.onKeyPress('\u017c')
+        assertIs<GuessResult.Correct>(r3)
+        assertEquals(0, (r3 as GuessResult.Correct).slotIndex)
+    }
+
+    @Test
+    fun `polish characters matching`() {
+        val engine = GameEngine()
+        
+        engine.startRound(listOf(makeWord("\u0142\u0105ka", "\u0142\u0105ka"))) // łąka
+        assertIs<GuessResult.Correct>(engine.onKeyPress('\u0142')) // ł
+        
+        engine.startRound(listOf(makeWord("\u017ale", "\u017ale"))) // źle
+        assertIs<GuessResult.Correct>(engine.onKeyPress('\u017a')) // ź
+        
+        // Use a 2-letter word to avoid WordComplete on first hit
+        engine.startRound(listOf(makeWord("\u0105x", "\u0105x"))) // ąx
+        assertIs<GuessResult.Correct>(engine.onKeyPress('\u0105')) // ą
+        
+        engine.startRound(listOf(makeWord("\u0107x", "\u0107x"))) // ćx
+        assertIs<GuessResult.Correct>(engine.onKeyPress('\u0107')) // ć
+
+        engine.startRound(listOf(makeWord("\u0119x", "\u0119x"))) // ęx
+        assertIs<GuessResult.Correct>(engine.onKeyPress('\u0119')) // ę
+
+        engine.startRound(listOf(makeWord("\u0144x", "\u0144x"))) // ńx
+        assertIs<GuessResult.Correct>(engine.onKeyPress('\u0144')) // ń
+
+        engine.startRound(listOf(makeWord("\u00f3x", "\u00f3x"))) // óx
+        assertIs<GuessResult.Correct>(engine.onKeyPress('\u00f3')) // ó
+
+        engine.startRound(listOf(makeWord("\u015bx", "\u015bx"))) // śx
+        assertIs<GuessResult.Correct>(engine.onKeyPress('\u015b')) // ś
+    }
 }
