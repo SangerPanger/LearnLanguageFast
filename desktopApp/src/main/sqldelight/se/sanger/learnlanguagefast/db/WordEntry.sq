@@ -1,0 +1,22 @@
+CREATE TABLE WordEntry (
+    id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    sourceWord TEXT NOT NULL,
+    targetWord TEXT NOT NULL,
+    retrain INTEGER NOT NULL DEFAULT 0
+);
+
+insertWord:
+INSERT INTO WordEntry(sourceWord, targetWord, retrain)
+VALUES (?, ?, ?);
+
+getAllWords:
+SELECT * FROM WordEntry ORDER BY id;
+
+getRetrainWords:
+SELECT * FROM WordEntry WHERE retrain = 1 ORDER BY id;
+
+updateWord:
+UPDATE WordEntry SET sourceWord = ?, targetWord = ? WHERE id = ?;
+
+updateRetrainStatus:
+UPDATE WordEntry SET retrain = ? WHERE id = ?;
