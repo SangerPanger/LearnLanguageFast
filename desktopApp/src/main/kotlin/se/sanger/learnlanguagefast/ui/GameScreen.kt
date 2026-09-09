@@ -195,6 +195,10 @@ fun GameScreen(
                 fontSize = 32.sp,
                 style = MaterialTheme.typography.headlineLarge
             )
+            if (engine.requiredRepetitions > 1) {
+                Spacer(Modifier.height(12.dp))
+                Text("Repetitions: ${engine.currentRepetition} / ${engine.requiredRepetitions}")
+            }
             Spacer(Modifier.height(32.dp))
 
             Row(horizontalArrangement = Arrangement.Center) {

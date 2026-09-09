@@ -1,6 +1,7 @@
 package se.sanger.learnlanguagefast.game
 
 import se.sanger.learnlanguagefast.model.Word
+import se.sanger.learnlanguagefast.model.GameSettings
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -12,6 +13,12 @@ class GameEngineTest {
 
     private fun makeWord(source: String, target: String, id: Long = 1) =
         Word(id, source, target, false)
+
+    private fun completeCurrentWord(engine: GameEngine) {
+        engine.currentState!!.slots
+            .filter { it.state == LetterState.HIDDEN }
+            .forEach { engine.onKeyPress(it.character) }
+    }
 
     @Test
     fun `apple example from spec`() {
@@ -259,5 +266,174 @@ class GameEngineTest {
 
         engine.startRound(listOf(makeWord("\u015bx", "\u015bx"))) // śx
         assertIs<GuessResult.Correct>(engine.onKeyPress('\u015b')) // ś
+    }
+
+    @Test
+    fun `failsafe uses configured threshold`() {
+        val engine = GameEngine(GameSettings(failsafeMistakes = 3))
+        engine.startRound(listOf(makeWord("hej", "hej")))
+
+        assertIs<GuessResult.Wrong>(engine.onKeyPress('x'))
+        assertIs<GuessResult.Wrong>(engine.onKeyPress('x'))
+        val result = engine.onKeyPress('x')
+
+        assertIs<GuessResult.AutoReveal>(result)
+        assertEquals(0, result.slotIndex)
+        assertEquals(LetterState.REVEALED_AFTER_ERRORS, engine.currentState!!.slots[0].state)
+    }
+
+    @Test
+    fun `disabled failsafe never reveals a letter`() {
+        val engine = GameEngine(GameSettings(failsafeEnabled = false))
+        engine.startRound(listOf(makeWord("hej", "hej")))
+
+        repeat(10) { assertIs<GuessResult.Wrong>(engine.onKeyPress('x')) }
+
+        assertTrue(engine.currentState!!.slots.all { it.state == LetterState.HIDDEN })
+    }
+
+    @Test
+    fun `hardcore requires letters from left to right`() {
+        val engine = GameEngine(GameSettings(hardcoreEnabled = true))
+        engine.startRound(listOf(makeWord("hej", "hej")))
+
+        assertIs<GuessResult.Wrong>(engine.onKeyPress('e'))
+        assertEquals(0, assertIs<GuessResult.Correct>(engine.onKeyPress('h')).slotIndex)
+        assertEquals(1, assertIs<GuessResult.Correct>(engine.onKeyPress('e')).slotIndex)
+    }
+
+    @Test
+    fun `normal mode permits any hidden matching position`() {
+        val engine = GameEngine(GameSettings(hardcoreEnabled = false))
+        engine.startRound(listOf(makeWord("hej", "hej")))
+
+        val result = assertIs<GuessResult.Correct>(engine.onKeyPress('e'))
+
+        assertEquals(1, result.slotIndex)
+        assertEquals(LetterState.CORRECT, engine.currentState!!.slots[1].state)
+    }
+
+    @Test
+    fun `flow accepts base letter but reveals target character`() {
+        val engine = GameEngine(GameSettings(flowEnabled = true))
+        engine.startRound(listOf(makeWord("ęx", "ęx")))
+
+        val result = assertIs<GuessResult.Correct>(engine.onKeyPress('e'))
+
+        assertEquals(0, result.slotIndex)
+        assertEquals('ę', engine.currentState!!.slots[0].character)
+        assertFalse(engine.currentState!!.hadMistake)
+    }
+
+    @Test
+    fun `strict polish input rejects base letter and accepts exact variant`() {
+        val engine = GameEngine(GameSettings(flowEnabled = false))
+        engine.startRound(listOf(makeWord("ęx", "ęx")))
+
+        assertIs<GuessResult.Wrong>(engine.onKeyPress('e'))
+        assertIs<GuessResult.Correct>(engine.onKeyPress('ę'))
+    }
+
+    @Test
+    fun `flow and hardcore combine without bypassing position`() {
+        val engine = GameEngine(GameSettings(hardcoreEnabled = true, flowEnabled = true))
+        engine.startRound(listOf(makeWord("łąka", "łąka")))
+
+        assertIs<GuessResult.Wrong>(engine.onKeyPress('a'))
+        val result = assertIs<GuessResult.Correct>(engine.onKeyPress('l'))
+
+        assertEquals(0, result.slotIndex)
+        assertEquals('ł', engine.currentState!!.slots[0].character)
+    }
+
+    @Test
+    fun `repeater keeps word until required perfect attempts`() {
+        val engine = GameEngine(GameSettings(repeaterEnabled = true, repeaterCount = 3))
+        engine.startRound(listOf(makeWord("A", "a")))
+
+        repeat(2) { completedAttempts ->
+            completeCurrentWord(engine)
+            assertEquals(completedAttempts + 1, engine.currentRepetition)
+            engine.moveToNextWord()
+            assertFalse(engine.isRoundComplete)
+        }
+        completeCurrentWord(engine)
+        assertEquals(3, engine.currentRepetition)
+        engine.moveToNextWord()
+
+        assertTrue(engine.isRoundComplete)
+    }
+
+    @Test
+    fun `failed repeater attempt preserves successful repetition progress`() {
+        val engine = GameEngine(GameSettings(repeaterEnabled = true, repeaterCount = 3))
+        engine.startRound(listOf(makeWord("A", "a")))
+        repeat(2) {
+            completeCurrentWord(engine)
+            engine.moveToNextWord()
+        }
+
+        engine.onKeyPress('x')
+        completeCurrentWord(engine)
+        assertEquals(2, engine.currentRepetition)
+        engine.moveToNextWord()
+        completeCurrentWord(engine)
+
+        assertEquals(3, engine.currentRepetition)
+    }
+
+    @Test
+    fun `imprint repeats failed word immediately while normal queue sends it last`() {
+        val words = listOf(makeWord("A", "a", 1), makeWord("B", "b", 2), makeWord("C", "c", 3))
+        val imprintEngine = GameEngine(GameSettings(imprintEnabled = true))
+        imprintEngine.startRound(words)
+        val imprintFirstId = imprintEngine.currentState!!.word.id
+        imprintEngine.onKeyPress('x')
+        completeCurrentWord(imprintEngine)
+        imprintEngine.moveToNextWord()
+        assertEquals(imprintFirstId, imprintEngine.currentState!!.word.id)
+
+        val normalEngine = GameEngine(GameSettings(imprintEnabled = false))
+        normalEngine.startRound(words)
+        val normalFirstId = normalEngine.currentState!!.word.id
+        normalEngine.onKeyPress('x')
+        completeCurrentWord(normalEngine)
+        normalEngine.moveToNextWord()
+        assertTrue(normalFirstId != normalEngine.currentState!!.word.id)
+    }
+
+    @Test
+    fun `imprint repeats successful attempts until repeater target`() {
+        val engine = GameEngine(
+            GameSettings(repeaterEnabled = true, repeaterCount = 3, imprintEnabled = true)
+        )
+        val words = listOf(makeWord("A", "a", 1), makeWord("B", "b", 2))
+        engine.startRound(words)
+        val repeatedWordId = engine.currentState!!.word.id
+
+        repeat(2) {
+            completeCurrentWord(engine)
+            engine.moveToNextWord()
+            assertEquals(repeatedWordId, engine.currentState!!.word.id)
+        }
+        completeCurrentWord(engine)
+        engine.moveToNextWord()
+
+        assertTrue(repeatedWordId != engine.currentState!!.word.id)
+    }
+
+    @Test
+    fun `retrain remains flagged until current repeater target is reached`() {
+        val engine = GameEngine(GameSettings(repeaterEnabled = true, repeaterCount = 3))
+        engine.startRound(listOf(Word(1, "hund", "a", true, 2)), isRetrain = true)
+
+        repeat(2) {
+            completeCurrentWord(engine)
+            assertTrue(engine.getCompletedWordResult()!!.first.retrain)
+            engine.moveToNextWord()
+        }
+        completeCurrentWord(engine)
+
+        assertFalse(engine.getCompletedWordResult()!!.first.retrain)
     }
 }

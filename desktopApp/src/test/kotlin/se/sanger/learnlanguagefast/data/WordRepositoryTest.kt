@@ -1,6 +1,7 @@
 package se.sanger.learnlanguagefast.data
 
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
+import se.sanger.learnlanguagefast.model.GameSettings
 import kotlin.test.*
 
 class WordRepositoryTest {
@@ -230,5 +231,26 @@ class WordRepositoryTest {
         val repo2 = WordRepository(driver)
         assertEquals(1, repo2.getAllLists().size)
         assertEquals(2, repo2.getAllWords().size)
+    }
+
+    @Test
+    fun `game settings use defaults and persist across repository restart`() {
+        val driver = JdbcSqliteDriver(JdbcSqliteDriver.IN_MEMORY)
+        val firstRepository = WordRepository(driver)
+        assertEquals(GameSettings(), firstRepository.getGameSettings())
+
+        val changed = GameSettings(
+            failsafeEnabled = true,
+            failsafeMistakes = 5,
+            hardcoreEnabled = true,
+            repeaterEnabled = true,
+            repeaterCount = 4,
+            flowEnabled = true,
+            imprintEnabled = true
+        )
+        firstRepository.saveGameSettings(changed)
+
+        val restartedRepository = WordRepository(driver)
+        assertEquals(changed, restartedRepository.getGameSettings())
     }
 }

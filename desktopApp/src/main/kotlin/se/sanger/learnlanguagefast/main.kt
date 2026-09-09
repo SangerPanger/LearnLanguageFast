@@ -29,6 +29,7 @@ fun main() = application {
     ) {
         MaterialTheme {
             var currentScreen by remember { mutableStateOf<Screen>(Screen.MainMenu) }
+            var gameSettings by remember { mutableStateOf(repository.getGameSettings()) }
             var lists by remember { mutableStateOf(repository.getAllLists()) }
             var words by remember { mutableStateOf<List<Word>>(emptyList()) }
 
@@ -41,7 +42,7 @@ fun main() = application {
             }
 
             fun startGame(gameWords: List<Word>, isRetrain: Boolean) {
-                engine.startRound(gameWords, isRetrain = isRetrain)
+                engine.startRound(gameWords, isRetrain = isRetrain, gameSettings = gameSettings)
                 currentScreen = Screen.Game(isRetrain)
             }
 
@@ -61,7 +62,19 @@ fun main() = application {
                             refreshLists()
                             currentScreen = Screen.GlossaryListSelection
                         },
+                        onOptions = { currentScreen = Screen.Options },
                         onExit = { exitApplication() }
+                    )
+                }
+
+                is Screen.Options -> {
+                    OptionsScreen(
+                        settings = gameSettings,
+                        onSettingsChange = { changedSettings ->
+                            gameSettings = changedSettings.normalized()
+                            repository.saveGameSettings(gameSettings)
+                        },
+                        onBack = { currentScreen = Screen.MainMenu }
                     )
                 }
 

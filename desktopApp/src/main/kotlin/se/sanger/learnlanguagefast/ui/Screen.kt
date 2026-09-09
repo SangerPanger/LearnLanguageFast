@@ -5,6 +5,7 @@ import se.sanger.learnlanguagefast.model.WordList
 
 sealed class Screen {
     object MainMenu : Screen()
+    object Options : Screen()
 
     // Add words flow
     object AddWordsChoice : Screen()

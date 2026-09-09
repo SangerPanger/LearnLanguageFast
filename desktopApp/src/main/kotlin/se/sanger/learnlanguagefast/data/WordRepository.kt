@@ -5,6 +5,7 @@ import app.cash.sqldelight.db.SqlDriver
 import app.cash.sqldelight.driver.jdbc.sqlite.JdbcSqliteDriver
 import se.sanger.learnlanguagefast.db.AppDatabase
 import se.sanger.learnlanguagefast.db.WordEntry
+import se.sanger.learnlanguagefast.model.GameSettings
 import se.sanger.learnlanguagefast.model.Word
 import se.sanger.learnlanguagefast.model.WordList
 
@@ -27,6 +28,7 @@ class WordRepository(
 
     private val words get() = database.wordEntryQueries
     private val lists get() = database.wordListQueries
+    private val settings get() = database.gameSettingsQueries
 
     // ---------------------------------------------------------------------
     // Migration
@@ -47,6 +49,22 @@ class WordRepository(
             driver.execute(
                 null,
                 "CREATE TABLE WordList (id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT, title TEXT NOT NULL)",
+                0
+            )
+        }
+        if (!tableExists("GameSettings")) {
+            driver.execute(
+                null,
+                """CREATE TABLE GameSettings (
+                    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+                    failsafeEnabled INTEGER NOT NULL DEFAULT 1,
+                    failsafeMistakes INTEGER NOT NULL DEFAULT 2,
+                    hardcoreEnabled INTEGER NOT NULL DEFAULT 0,
+                    repeaterEnabled INTEGER NOT NULL DEFAULT 0,
+                    repeaterCount INTEGER NOT NULL DEFAULT 1,
+                    flowEnabled INTEGER NOT NULL DEFAULT 0,
+                    imprintEnabled INTEGER NOT NULL DEFAULT 0
+                )""".trimIndent(),
                 0
             )
         }
@@ -143,6 +161,36 @@ class WordRepository(
             words.deleteWordsForList(id)
             lists.deleteList(id)
         }
+    }
+
+    // ---------------------------------------------------------------------
+    // Game settings
+    // ---------------------------------------------------------------------
+
+    fun getGameSettings(): GameSettings =
+        settings.getGameSettings().executeAsOneOrNull()?.let {
+            GameSettings(
+                failsafeEnabled = it.failsafeEnabled != 0L,
+                failsafeMistakes = it.failsafeMistakes.toInt(),
+                hardcoreEnabled = it.hardcoreEnabled != 0L,
+                repeaterEnabled = it.repeaterEnabled != 0L,
+                repeaterCount = it.repeaterCount.toInt(),
+                flowEnabled = it.flowEnabled != 0L,
+                imprintEnabled = it.imprintEnabled != 0L
+            ).normalized()
+        } ?: GameSettings()
+
+    fun saveGameSettings(gameSettings: GameSettings) {
+        val normalized = gameSettings.normalized()
+        settings.saveGameSettings(
+            if (normalized.failsafeEnabled) 1L else 0L,
+            normalized.failsafeMistakes.toLong(),
+            if (normalized.hardcoreEnabled) 1L else 0L,
+            if (normalized.repeaterEnabled) 1L else 0L,
+            normalized.repeaterCount.toLong(),
+            if (normalized.flowEnabled) 1L else 0L,
+            if (normalized.imprintEnabled) 1L else 0L
+        )
     }
 
     // ---------------------------------------------------------------------

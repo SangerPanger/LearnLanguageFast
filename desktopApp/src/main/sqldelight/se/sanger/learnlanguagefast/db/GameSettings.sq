@@ -1,0 +1,26 @@
+CREATE TABLE GameSettings (
+    id INTEGER NOT NULL PRIMARY KEY CHECK (id = 1),
+    failsafeEnabled INTEGER NOT NULL DEFAULT 1,
+    failsafeMistakes INTEGER NOT NULL DEFAULT 2,
+    hardcoreEnabled INTEGER NOT NULL DEFAULT 0,
+    repeaterEnabled INTEGER NOT NULL DEFAULT 0,
+    repeaterCount INTEGER NOT NULL DEFAULT 1,
+    flowEnabled INTEGER NOT NULL DEFAULT 0,
+    imprintEnabled INTEGER NOT NULL DEFAULT 0
+);
+
+getGameSettings:
+SELECT * FROM GameSettings WHERE id = 1;
+
+saveGameSettings:
+INSERT OR REPLACE INTO GameSettings(
+    id,
+    failsafeEnabled,
+    failsafeMistakes,
+    hardcoreEnabled,
+    repeaterEnabled,
+    repeaterCount,
+    flowEnabled,
+    imprintEnabled
+)
+VALUES (1, ?, ?, ?, ?, ?, ?, ?);

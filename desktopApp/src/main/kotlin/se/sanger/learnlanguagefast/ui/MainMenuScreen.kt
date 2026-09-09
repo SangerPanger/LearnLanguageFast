@@ -17,6 +17,7 @@ fun MainMenuScreen(
     onRetrain: () -> Unit,
     onAddWords: () -> Unit,
     onGlossary: () -> Unit,
+    onOptions: () -> Unit,
     onExit: () -> Unit = {}
 ) {
     Column(
@@ -46,6 +47,10 @@ fun MainMenuScreen(
         Spacer(Modifier.height(12.dp))
         Button(onClick = onGlossary, modifier = Modifier.width(200.dp)) {
             Text("Glossary")
+        }
+        Spacer(Modifier.height(12.dp))
+        Button(onClick = onOptions, modifier = Modifier.width(200.dp)) {
+            Text("Options")
         }
     }
 }
