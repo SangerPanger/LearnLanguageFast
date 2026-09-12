@@ -71,6 +71,10 @@ fun OptionsScreen(
             onSettingsChange(settings.copy(imprintEnabled = it))
         }
 
+        OptionToggle("Auto advance to next word", settings.autoAdvanceEnabled) {
+            onSettingsChange(settings.copy(autoAdvanceEnabled = it))
+        }
+
         Spacer(Modifier.height(16.dp))
         Text("Pronunciation", style = MaterialTheme.typography.titleLarge)
         OptionToggle("Enabled", settings.pronunciationEnabled) {

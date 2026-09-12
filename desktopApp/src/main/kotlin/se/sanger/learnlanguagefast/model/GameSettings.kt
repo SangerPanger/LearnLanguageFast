@@ -8,6 +8,8 @@ data class GameSettings(
     val repeaterCount: Int = DEFAULT_REPEATER_COUNT,
     val flowEnabled: Boolean = false,
     val imprintEnabled: Boolean = false,
+    // Auto-advance to next word when a word is completed
+    val autoAdvanceEnabled: Boolean = true,
     // Pronunciation options
     val pronunciationEnabled: Boolean = true,
     val autoPlayPronunciation: Boolean = true

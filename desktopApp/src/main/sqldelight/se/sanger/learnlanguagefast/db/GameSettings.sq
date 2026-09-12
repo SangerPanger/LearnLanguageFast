@@ -6,7 +6,8 @@ CREATE TABLE GameSettings (
     repeaterEnabled INTEGER NOT NULL DEFAULT 0,
     repeaterCount INTEGER NOT NULL DEFAULT 1,
     flowEnabled INTEGER NOT NULL DEFAULT 0,
-    imprintEnabled INTEGER NOT NULL DEFAULT 0
+    imprintEnabled INTEGER NOT NULL DEFAULT 0,
+    autoAdvanceEnabled INTEGER NOT NULL DEFAULT 1
 );
 
 getGameSettings:
@@ -21,6 +22,7 @@ INSERT OR REPLACE INTO GameSettings(
     repeaterEnabled,
     repeaterCount,
     flowEnabled,
-    imprintEnabled
+    imprintEnabled,
+    autoAdvanceEnabled
 )
-VALUES (1, ?, ?, ?, ?, ?, ?, ?);
+VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?);

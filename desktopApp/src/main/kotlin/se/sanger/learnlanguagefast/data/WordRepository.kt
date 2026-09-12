@@ -63,10 +63,14 @@ class WordRepository(
                     repeaterEnabled INTEGER NOT NULL DEFAULT 0,
                     repeaterCount INTEGER NOT NULL DEFAULT 1,
                     flowEnabled INTEGER NOT NULL DEFAULT 0,
-                    imprintEnabled INTEGER NOT NULL DEFAULT 0
+                    imprintEnabled INTEGER NOT NULL DEFAULT 0,
+                    autoAdvanceEnabled INTEGER NOT NULL DEFAULT 1
                 )""".trimIndent(),
                 0
             )
+        }
+        if (!columnExists("GameSettings", "autoAdvanceEnabled")) {
+            driver.execute(null, "ALTER TABLE GameSettings ADD COLUMN autoAdvanceEnabled INTEGER NOT NULL DEFAULT 1", 0)
         }
         if (!columnExists("WordEntry", "perfectCount")) {
             driver.execute(null, "ALTER TABLE WordEntry ADD COLUMN perfectCount INTEGER NOT NULL DEFAULT 0", 0)
@@ -176,7 +180,8 @@ class WordRepository(
                 repeaterEnabled = it.repeaterEnabled != 0L,
                 repeaterCount = it.repeaterCount.toInt(),
                 flowEnabled = it.flowEnabled != 0L,
-                imprintEnabled = it.imprintEnabled != 0L
+                imprintEnabled = it.imprintEnabled != 0L,
+                autoAdvanceEnabled = (it.autoAdvanceEnabled != 0L)
             ).normalized()
         } ?: GameSettings()
 
@@ -189,7 +194,8 @@ class WordRepository(
             if (normalized.repeaterEnabled) 1L else 0L,
             normalized.repeaterCount.toLong(),
             if (normalized.flowEnabled) 1L else 0L,
-            if (normalized.imprintEnabled) 1L else 0L
+            if (normalized.imprintEnabled) 1L else 0L,
+            if (normalized.autoAdvanceEnabled) 1L else 0L
         )
     }
 

@@ -302,7 +302,7 @@ fun GameScreen(
         focusRequester.requestFocus()
     }
 
-    // Autoplay pronunciation exactly once per completed attempt and auto-advance after a short delay
+    // Autoplay pronunciation exactly once per completed attempt and optionally auto-advance after a short delay
     LaunchedEffect(completedAttemptCounter) {
         if (!showWordComplete) return@LaunchedEffect
         val result = engine.getCompletedWordResult() ?: return@LaunchedEffect
@@ -310,14 +310,16 @@ fun GameScreen(
         if (gameSettings.pronunciationEnabled && gameSettings.autoPlayPronunciation) {
             runCatching { pronunciationManager?.play(word) }
         }
-        delay(1500)
-        if (showWordComplete) {
-            onWordComplete(word, perfect)
-            engine.moveToNextWord()
-            wordState = engine.currentState
-            showWordComplete = false
-            if (engine.isRoundComplete) {
-                onRoundComplete()
+        if (gameSettings.autoAdvanceEnabled) {
+            delay(1500)
+            if (showWordComplete) {
+                onWordComplete(word, perfect)
+                engine.moveToNextWord()
+                wordState = engine.currentState
+                showWordComplete = false
+                if (engine.isRoundComplete) {
+                    onRoundComplete()
+                }
             }
         }
     }
@@ -325,7 +327,7 @@ fun GameScreen(
     LaunchedEffect(showWordComplete) {
         if (showWordComplete) {
             val result = engine.getCompletedWordResult()
-            if (result != null && result.second) {
+            if (result != null && result.second && gameSettings.autoAdvanceEnabled) {
                 delay(400)
                 onWordComplete(result.first, true)
                 engine.moveToNextWord()
