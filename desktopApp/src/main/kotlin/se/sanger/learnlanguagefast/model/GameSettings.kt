@@ -7,7 +7,10 @@ data class GameSettings(
     val repeaterEnabled: Boolean = false,
     val repeaterCount: Int = DEFAULT_REPEATER_COUNT,
     val flowEnabled: Boolean = false,
-    val imprintEnabled: Boolean = false
+    val imprintEnabled: Boolean = false,
+    // Pronunciation options
+    val pronunciationEnabled: Boolean = true,
+    val autoPlayPronunciation: Boolean = true
 ) {
     fun normalized() = copy(
         failsafeMistakes = failsafeMistakes.coerceIn(MIN_FAILSAFE_MISTAKES, MAX_FAILSAFE_MISTAKES),

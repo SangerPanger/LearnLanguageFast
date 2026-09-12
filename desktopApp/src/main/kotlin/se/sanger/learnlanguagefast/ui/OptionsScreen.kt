@@ -71,6 +71,18 @@ fun OptionsScreen(
             onSettingsChange(settings.copy(imprintEnabled = it))
         }
 
+        Spacer(Modifier.height(16.dp))
+        Text("Pronunciation", style = MaterialTheme.typography.titleLarge)
+        OptionToggle("Enabled", settings.pronunciationEnabled) {
+            onSettingsChange(settings.copy(pronunciationEnabled = it))
+        }
+        OptionToggle(
+            label = "Auto play pronunciation",
+            checked = settings.autoPlayPronunciation && settings.pronunciationEnabled
+        ) {
+            onSettingsChange(settings.copy(autoPlayPronunciation = it))
+        }
+
         Spacer(Modifier.height(32.dp))
         Button(onClick = onBack) {
             Text("← Back")

@@ -17,8 +17,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import se.sanger.learnlanguagefast.model.Word
 import se.sanger.learnlanguagefast.game.*
+import se.sanger.learnlanguagefast.model.GameSettings
+import se.sanger.learnlanguagefast.pronunciation.PronunciationManager
 
 data class SelectionState(
     val baseChar: Char,
@@ -44,13 +47,17 @@ fun GameScreen(
     engine: GameEngine,
     onWordComplete: (Word, Boolean) -> Unit,
     onRoundComplete: () -> Unit,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    gameSettings: GameSettings = GameSettings(),
+    pronunciationManager: PronunciationManager? = null
 ) {
     val focusRequester = remember { FocusRequester() }
     var wordState by remember { mutableStateOf(engine.currentState) }
     var flashRed by remember { mutableStateOf(false) }
     var showWordComplete by remember { mutableStateOf(false) }
     var selectionState by remember { mutableStateOf<SelectionState?>(null) }
+    var completedAttemptCounter by remember { mutableStateOf(0) }
+    val scope = rememberCoroutineScope()
 
     val bgColor by animateColorAsState(
         targetValue = if (flashRed) Color.Red.copy(alpha = 0.3f) else Color.Transparent
@@ -77,6 +84,7 @@ fun GameScreen(
             is GuessResult.WordComplete -> {
                 showWordComplete = true
                 selectionState = null
+                completedAttemptCounter++
             }
             is GuessResult.Correct -> {}
             null -> {}
@@ -263,16 +271,27 @@ fun GameScreen(
                         color = if (perfect) Color(0xFF4CAF50) else Color(0xFFF44336)
                     )
                     Spacer(Modifier.height(16.dp))
-                    Button(onClick = {
-                        onWordComplete(word, perfect)
-                        engine.moveToNextWord()
-                        wordState = engine.currentState
-                        showWordComplete = false
-                        if (engine.isRoundComplete) {
-                            onRoundComplete()
+                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (gameSettings.pronunciationEnabled) {
+                            Button(onClick = {
+                                pronunciationManager?.let { pm ->
+                                    scope.launch { runCatching { pm.play(word) } }
+                                }
+                            }, enabled = pronunciationManager != null) {
+                                Text("🔊 Replay")
+                            }
                         }
-                    }) {
-                        Text("Next")
+                        Button(onClick = {
+                            onWordComplete(word, perfect)
+                            engine.moveToNextWord()
+                            wordState = engine.currentState
+                            showWordComplete = false
+                            if (engine.isRoundComplete) {
+                                onRoundComplete()
+                            }
+                        }) {
+                            Text("Next")
+                        }
                     }
                 }
             }
@@ -281,6 +300,26 @@ fun GameScreen(
 
     LaunchedEffect(Unit) {
         focusRequester.requestFocus()
+    }
+
+    // Autoplay pronunciation exactly once per completed attempt and auto-advance after a short delay
+    LaunchedEffect(completedAttemptCounter) {
+        if (!showWordComplete) return@LaunchedEffect
+        val result = engine.getCompletedWordResult() ?: return@LaunchedEffect
+        val (word, perfect) = result
+        if (gameSettings.pronunciationEnabled && gameSettings.autoPlayPronunciation) {
+            runCatching { pronunciationManager?.play(word) }
+        }
+        delay(1500)
+        if (showWordComplete) {
+            onWordComplete(word, perfect)
+            engine.moveToNextWord()
+            wordState = engine.currentState
+            showWordComplete = false
+            if (engine.isRoundComplete) {
+                onRoundComplete()
+            }
+        }
     }
 
     LaunchedEffect(showWordComplete) {

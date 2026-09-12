@@ -13,6 +13,10 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.input.key.*
 import kotlinx.coroutines.delay
+import se.sanger.learnlanguagefast.pronunciation.DesktopAudioPlayer
+import se.sanger.learnlanguagefast.pronunciation.PronunciationManager
+import se.sanger.learnlanguagefast.pronunciation.PronunciationSettings
+import se.sanger.learnlanguagefast.pronunciation.PronunciationSettingsStore
 import se.sanger.learnlanguagefast.data.ImportResult
 import se.sanger.learnlanguagefast.data.WordRepository
 import se.sanger.learnlanguagefast.game.GameEngine
@@ -22,6 +26,8 @@ import se.sanger.learnlanguagefast.ui.*
 fun main() = application {
     val repository = remember { WordRepository() }
     val engine = remember { GameEngine() }
+    val pronunciationStore = remember { PronunciationSettingsStore() }
+    val pronunciationManager = remember { PronunciationManager(DesktopAudioPlayer()) }
 
     Window(
         onCloseRequest = ::exitApplication,
@@ -29,7 +35,17 @@ fun main() = application {
     ) {
         MaterialTheme {
             var currentScreen by remember { mutableStateOf<Screen>(Screen.MainMenu) }
-            var gameSettings by remember { mutableStateOf(repository.getGameSettings()) }
+            var gameSettings by remember {
+                mutableStateOf(
+                    repository.getGameSettings().let { base ->
+                        val ps = pronunciationStore.load()
+                        base.copy(
+                            pronunciationEnabled = ps.enabled,
+                            autoPlayPronunciation = ps.autoPlay
+                        )
+                    }
+                )
+            }
             var lists by remember { mutableStateOf(repository.getAllLists()) }
             var words by remember { mutableStateOf<List<Word>>(emptyList()) }
 
@@ -73,6 +89,12 @@ fun main() = application {
                         onSettingsChange = { changedSettings ->
                             gameSettings = changedSettings.normalized()
                             repository.saveGameSettings(gameSettings)
+                            pronunciationStore.save(
+                                PronunciationSettings(
+                                    enabled = gameSettings.pronunciationEnabled,
+                                    autoPlay = gameSettings.autoPlayPronunciation
+                                )
+                            )
                         },
                         onBack = { currentScreen = Screen.MainMenu }
                     )
@@ -184,7 +206,9 @@ fun main() = application {
                             onRoundComplete = {
                                 currentScreen = Screen.RoundComplete
                             },
-                            onBack = { currentScreen = Screen.MainMenu }
+                            onBack = { currentScreen = Screen.MainMenu },
+                            gameSettings = gameSettings,
+                            pronunciationManager = pronunciationManager
                         )
                     }
                 }
