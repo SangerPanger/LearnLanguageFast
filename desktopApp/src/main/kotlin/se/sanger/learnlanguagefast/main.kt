@@ -17,6 +17,9 @@ import se.sanger.learnlanguagefast.pronunciation.DesktopAudioPlayer
 import se.sanger.learnlanguagefast.pronunciation.PronunciationManager
 import se.sanger.learnlanguagefast.pronunciation.PronunciationSettings
 import se.sanger.learnlanguagefast.pronunciation.PronunciationSettingsStore
+import se.sanger.learnlanguagefast.pronunciation.LocalBeepPronunciationProvider
+import se.sanger.learnlanguagefast.pronunciation.WindowsTtsPronunciationProvider
+import se.sanger.learnlanguagefast.pronunciation.AppDirectories
 import se.sanger.learnlanguagefast.data.ImportResult
 import se.sanger.learnlanguagefast.data.WordRepository
 import se.sanger.learnlanguagefast.game.GameEngine
@@ -27,7 +30,18 @@ fun main() = application {
     val repository = remember { WordRepository() }
     val engine = remember { GameEngine() }
     val pronunciationStore = remember { PronunciationSettingsStore() }
-    val pronunciationManager = remember { PronunciationManager(DesktopAudioPlayer()) }
+    val pronunciationManager = remember {
+        println("[App] Audio cache directory: ${AppDirectories.audioDirectory.absolutePath}")
+        val os = System.getProperty("os.name").lowercase()
+        val provider = if (os.contains("windows")) {
+            println("[App] Using WindowsTtsPronunciationProvider")
+            WindowsTtsPronunciationProvider(defaultLanguage = se.sanger.learnlanguagefast.pronunciation.PronunciationManager.DEFAULT_LANGUAGE)
+        } else {
+            println("[App][WARN] Non-Windows OS detected ('$os'). Falling back to NoOp (no pronunciation).")
+            se.sanger.learnlanguagefast.pronunciation.NoOpPronunciationProvider()
+        }
+        PronunciationManager(DesktopAudioPlayer(), provider)
+    }
 
     Window(
         onCloseRequest = ::exitApplication,

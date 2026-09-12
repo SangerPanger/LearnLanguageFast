@@ -22,12 +22,23 @@ class PronunciationManager(
     suspend fun play(word: Word) {
         // Fail-safe wrapper
         try {
+            println("[Pronunciation] play() called for word id=${word.id} text='${word.targetWord}' provider=${provider.javaClass.simpleName}")
             val file = ensureAudioFile(word)
-            if (file != null && file.exists()) {
-                audioPlayer.play(file)
+            println("[Pronunciation] audio cache dir: ${AppDirectories.audioDirectory.absolutePath}")
+            if (file != null) {
+                val exists = file.exists()
+                val size = if (exists) file.length() else -1
+                println("[Pronunciation] cache candidate: ${file.absolutePath} exists=${exists} size=${size}")
+                if (exists && size > 0L) println("[Pronunciation] Cache hit for '${word.targetWord}' -> ${file.name}")
             }
-        } catch (_: Throwable) {
-            // swallow; logging could be added here in the future
+            if (file != null && file.exists() && file.length() > 0L) {
+                println("[Pronunciation] invoking AudioPlayer.play()")
+                audioPlayer.play(file)
+            } else {
+                println("[Pronunciation][WARN] No audio file available to play")
+            }
+        } catch (t: Throwable) {
+            println("[Pronunciation][ERROR] play() failed: ${t.message}")
         }
     }
 
@@ -43,12 +54,21 @@ class PronunciationManager(
         // Attempt generation only once at a time for the same word
         mutex.withLock {
             if (file.exists()) return@withLock file
-            val bytes = try { provider.generate(target, languageCode) } catch (_: Throwable) { null }
+            val bytes = try {
+                println("[Pronunciation] Cache miss -> generating TTS. text='${target}', lang=${languageCode}")
+                provider.generate(target, languageCode)
+            } catch (t: Throwable) {
+                println("[Pronunciation][ERROR] provider.generate failed: ${t.message}")
+                null
+            }
             if (bytes != null) {
                 try {
                     file.outputStream().use { it.write(bytes) }
+                    println("[Pronunciation] Generated file path: ${file.absolutePath}")
+                    println("[Pronunciation] Generated file size: ${file.length()}")
                     return@withLock file
-                } catch (_: Throwable) {
+                } catch (t: Throwable) {
+                    println("[Pronunciation][ERROR] failed writing audio file: ${t.message}")
                     return@withLock null
                 }
             }

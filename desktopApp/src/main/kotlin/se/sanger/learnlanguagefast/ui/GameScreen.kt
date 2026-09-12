@@ -275,6 +275,7 @@ fun GameScreen(
                         if (gameSettings.pronunciationEnabled) {
                             Button(onClick = {
                                 pronunciationManager?.let { pm ->
+                                    println("[GameScreen] Replay clicked for word id=${word.id} '${word.targetWord}'")
                                     scope.launch { runCatching { pm.play(word) } }
                                 }
                             }, enabled = pronunciationManager != null) {
@@ -308,6 +309,7 @@ fun GameScreen(
         val result = engine.getCompletedWordResult() ?: return@LaunchedEffect
         val (word, perfect) = result
         if (gameSettings.pronunciationEnabled && gameSettings.autoPlayPronunciation) {
+            println("[GameScreen] Autoplay pronunciation for word id=${word.id} '${word.targetWord}'")
             runCatching { pronunciationManager?.play(word) }
         }
         if (gameSettings.autoAdvanceEnabled) {

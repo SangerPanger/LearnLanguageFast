@@ -33,11 +33,13 @@ class DesktopAudioPlayer : AudioPlayer {
             stop()
             var stream: AudioInputStream? = null
             try {
+                println("[AudioPlayer] Playing file: ${file.absolutePath}")
                 stream = AudioSystem.getAudioInputStream(file)
                 val newClip = AudioSystem.getClip()
                 newClip.open(stream)
                 clip = newClip
                 newClip.start()
+                println("[AudioPlayer] Clip started, length frames=${newClip.frameLength}")
             } finally {
                 // Do not close stream here if the clip uses it; close when stopping/closing the clip
             }
