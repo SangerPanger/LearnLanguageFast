@@ -31,7 +31,7 @@ class PronunciationManager(
                 println("[Pronunciation] cache candidate: ${file.absolutePath} exists=${exists} size=${size}")
                 if (exists && size > 0L) println("[Pronunciation] Cache hit for '${word.targetWord}' -> ${file.name}")
             }
-            if (file != null && file.exists() && file.length() > 0L) {
+            if (file != null && file.exists() && file.length() > 44L) {
                 println("[Pronunciation] invoking AudioPlayer.play()")
                 audioPlayer.play(file)
             } else {
@@ -49,7 +49,12 @@ class PronunciationManager(
     private suspend fun ensureAudioFile(word: Word): File? = withContext(Dispatchers.IO) {
         val target = word.targetWord
         val file = File(AppDirectories.audioDirectory, cacheFileName(word.id, target))
-        if (file.exists()) return@withContext file
+        if (file.exists()) {
+            if (file.length() > 44L) return@withContext file
+            // Delete broken/empty cache file before retrying
+            runCatching { file.delete() }
+            println("[Pronunciation][WARN] Deleted invalid cache file: ${file.absolutePath}")
+        }
 
         // Attempt generation only once at a time for the same word
         mutex.withLock {
@@ -62,6 +67,10 @@ class PronunciationManager(
                 null
             }
             if (bytes != null) {
+                if (bytes.size <= 44) {
+                    println("[Pronunciation][ERROR] Provider returned invalid/empty WAV bytes (size=${bytes.size}). Skipping cache write.")
+                    return@withLock null
+                }
                 try {
                     file.outputStream().use { it.write(bytes) }
                     println("[Pronunciation] Generated file path: ${file.absolutePath}")
@@ -90,6 +99,8 @@ class PronunciationManager(
 
     companion object {
         // TODO: Language should come from WordList/Settings in the future
-        const val DEFAULT_LANGUAGE = "pl-PL"
+        // Default to English (United States) as a broadly available voice on Windows.
+        // If unavailable, the provider will fall back to any installed voice.
+        const val DEFAULT_LANGUAGE = "en-US"
     }
 }
